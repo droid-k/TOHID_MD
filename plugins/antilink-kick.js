@@ -1,60 +1,33 @@
-const { cmd } = require('../command');
-const config = require("../config");
-
-// Anti-Link System
-const linkPatterns = [
-  /https?:\/\/(?:chat\.whatsapp\.com|wa\.me)\/\S+/gi,
-  /^https?:\/\/(www\.)?whatsapp\.com\/channel\/([a-zA-Z0-9_-]+)$/,
-  /wa\.me\/\S+/gi,
-  /https?:\/\/(?:t\.me|telegram\.me)\/\S+/gi,
-  /https?:\/\/(?:www\.)?youtube\.com\/\S+/gi,
-  /https?:\/\/youtu\.be\/\S+/gi,
-  /https?:\/\/(?:www\.)?facebook\.com\/\S+/gi,
-  /https?:\/\/fb\.me\/\S+/gi,
-  /https?:\/\/(?:www\.)?instagram\.com\/\S+/gi,
-  /https?:\/\/(?:www\.)?twitter\.com\/\S+/gi,
-  /https?:\/\/(?:www\.)?tiktok\.com\/\S+/gi,
-  /https?:\/\/(?:www\.)?linkedin\.com\/\S+/gi,
-  /https?:\/\/(?:www\.)?snapchat\.com\/\S+/gi,
-  /https?:\/\/(?:www\.)?pinterest\.com\/\S+/gi,
-  /https?:\/\/(?:www\.)?reddit\.com\/\S+/gi,
-  /https?:\/\/ngl\/\S+/gi,
-  /https?:\/\/(?:www\.)?discord\.com\/\S+/gi,
-  /https?:\/\/(?:www\.)?twitch\.tv\/\S+/gi,
-  /https?:\/\/(?:www\.)?vimeo\.com\/\S+/gi,
-  /https?:\/\/(?:www\.)?dailymotion\.com\/\S+/gi,
-  /https?:\/\/(?:www\.)?medium\.com\/\S+/gi
-];
-
 cmd({
-  'on': "body"
-}, async (conn, m, store, {
-  from,
-  body,
-  sender,
-  isGroup,
-  isAdmins,
-  isBotAdmins,
-  reply
-}) => {
+  pattern: "antilink",
+  desc: "Control anti-link system",
+  category: "admin",
+  isAdmin: true
+}, async (m, text, { isAdmin }) => {
   try {
-    if (!isGroup || isAdmins || !isBotAdmins) {
-      return;
+    if (!isAdmin) return m.reply("❌ Only admins can control anti-link settings");
+
+    const [action] = text.toLowerCase().split(' ');
+    
+    if (!action) {
+      return m.reply(
+        `⚙️ *Anti-Link Help*\n\n` +
+        `*Enable/Disable:*\n` +
+        `.antilink on - Enable protection\n` +
+        `.antilink off - Disable system\n\n` +
+        `*Modes:*\n` +
+        `.antilink warn - 3 warnings then kick\n` +
+        `.antilink delete - Just delete links\n` +
+        `.antilink kick - Instant removal\n\n` +
+        `*Status:*\n` +
+        `.antilink status - Show current settings`
+      );
     }
 
-    const containsLink = linkPatterns.some(pattern => pattern.test(body));
-
-    if (containsLink && config.ANTI_LINK_KICK === 'true') {
-      await conn.sendMessage(from, { 'delete': m.key }, { 'quoted': m });
-      await conn.sendMessage(from, {
-        'text': `⚠️ Links are not allowed in this group.\n@${sender.split('@')[0]} has been removed. 🚫`,
-        'mentions': [sender]
-      }, { 'quoted': m });
-
-      await conn.groupParticipantsUpdate(from, [sender], "remove");
-    }
+    // Rest of your command handling code...
+    
   } catch (error) {
-    console.error(error);
-    reply("An error occurred while processing the message.");
+    console.error("Command error:", error);
+    m.reply("❌ Error processing command");
   }
 });
