@@ -31,6 +31,12 @@
       "value": "public"
       
     },
+    
+    "AUTO_STATUS_REACT": {
+      "description": "Make it true if want auto status react.",
+      "required": false,
+      "value": "true"  
+    },
 
      "ANTI_DELETE": {
       "description": "set true for show deleted messages.",
