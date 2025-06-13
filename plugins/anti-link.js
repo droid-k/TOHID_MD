@@ -8,7 +8,7 @@ if (!global.warnings) {
 
 // Store anti-link mode (default: 'warn')
 if (!global.antiLinkMode) {
-  global.antiLinkMode = 'warn'; // 'warn' | 'delete' | 'kick'
+  global.antiLinkMode = 'delete'; // 'warn' | 'delete' | 'kick'
 }
 
 // Command to change anti-link mode
