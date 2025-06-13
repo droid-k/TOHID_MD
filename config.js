@@ -33,6 +33,8 @@ PREFIX: process.env.PREFIX || ".",
 // add your prifix for bot   
 BOT_NAME: process.env.BOT_NAME || "TOHID_MD",
 // add bot namw here for menu
+AUTO_STATUS_REACT: process.env.AUTO_STATUS_REACT || "true",
+// true to get auto status react
 STICKER_NAME: process.env.STICKER_NAME || "TOHID_MD",
 // type sticker pack name 
 CUSTOM_REACT: process.env.CUSTOM_REACT || "false",
