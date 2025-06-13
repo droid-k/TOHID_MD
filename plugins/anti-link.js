@@ -1,6 +1,34 @@
 const { cmd } = require('../command');
 const config = require("../config");
 
+// Initialize warnings globally
+if (!global.warnings) {
+  global.warnings = {};
+}
+
+// Store anti-link mode (default: 'warn')
+if (!global.antiLinkMode) {
+  global.antiLinkMode = 'warn'; // 'warn' | 'delete' | 'kick'
+}
+
+// Command to change anti-link mode
+cmd({
+  pattern: "antilink",
+  desc: "Set anti-link mode (warn/delete/kick)",
+  category: "admin",
+  isAdmin: true
+}, async (conn, m, text) => {
+  const mode = text?.toLowerCase().trim();
+  
+  if (!mode || !['warn', 'delete', 'kick'].includes(mode)) {
+    return m.reply(`❌ Invalid mode! Usage: *antilink warn* | *antilink delete* | *antilink kick*`);
+  }
+
+  global.antiLinkMode = mode;
+  m.reply(`✅ Anti-link mode set to: *${mode}*`);
+});
+
+// Main anti-link detection
 cmd({
   'on': "body"
 }, async (conn, m, store, {
@@ -13,80 +41,63 @@ cmd({
   reply
 }) => {
   try {
-    // Initialize warnings if not exists
-    if (!global.warnings) {
-      global.warnings = {};
-    }
+    // Skip if not a group, sender is admin, or bot isn't admin
+    if (!isGroup || isAdmins || !isBotAdmins) return;
 
-    // Only act in groups where bot is admin and sender isn't admin
-    if (!isGroup || isAdmins || !isBotAdmins) {
-      return;
-    }
-
-    // List of link patterns to detect
     const linkPatterns = [
-      /https?:\/\/(?:chat\.whatsapp\.com|wa\.me)\/\S+/gi, // WhatsApp links
-      /https?:\/\/(?:api\.whatsapp\.com|wa\.me)\/\S+/gi,  // WhatsApp API links
-      /wa\.me\/\S+/gi,                                    // WhatsApp.me links
-      /https?:\/\/(?:t\.me|telegram\.me)\/\S+/gi,         // Telegram links
-      /https?:\/\/(?:www\.)?\.com\/\S+/gi,                // Generic .com links
-      /https?:\/\/(?:www\.)?twitter\.com\/\S+/gi,         // Twitter links
-      /https?:\/\/(?:www\.)?linkedin\.com\/\S+/gi,        // LinkedIn links
-      /https?:\/\/(?:whatsapp\.com|channel\.me)\/\S+/gi,  // Other WhatsApp/channel links
-      /https?:\/\/(?:www\.)?reddit\.com\/\S+/gi,          // Reddit links
-      /https?:\/\/(?:www\.)?discord\.com\/\S+/gi,         // Discord links
-      /https?:\/\/(?:www\.)?twitch\.tv\/\S+/gi,           // Twitch links
-      /https?:\/\/(?:www\.)?vimeo\.com\/\S+/gi,           // Vimeo links
-      /https?:\/\/(?:www\.)?dailymotion\.com\/\S+/gi,     // Dailymotion links
-      /https?:\/\/(?:www\.)?medium\.com\/\S+/gi           // Medium links
+      /https?:\/\/(?:chat\.whatsapp\.com|wa\.me)\/\S+/gi,
+      /https?:\/\/(?:api\.whatsapp\.com|wa\.me)\/\S+/gi,
+      /wa\.me\/\S+/gi,
+      /https?:\/\/(?:t\.me|telegram\.me)\/\S+/gi,
+      /https?:\/\/(?:www\.)?\.com\/\S+/gi,
+      /https?:\/\/(?:www\.)?(twitter|linkedin|reddit|discord|twitch|vimeo|dailymotion|medium)\.com\/\S+/gi,
+      /https?:\/\/youtu\.be\/\S+/gi,
+      /https?:\/\/(?:www\.)?(facebook|fb|instagram|tiktok|snapchat|pinterest)\.com\/\S+/gi
     ];
 
-    // Check if message contains any forbidden links
     const containsLink = linkPatterns.some(pattern => pattern.test(body));
 
-    // Only proceed if anti-link is enabled and link is detected
-    if (containsLink && config.ANTI_LINK === 'true') {
-      console.log(`Link detected from ${sender}: ${body}`);
-
-      // Try to delete the message
+    if (containsLink) {
+      // Delete the message first (applies to all modes)
       try {
-        await conn.sendMessage(from, {
-          delete: m.key
-        });
-        console.log(`Message deleted: ${m.key.id}`);
+        await conn.sendMessage(from, { delete: m.key });
       } catch (error) {
         console.error("Failed to delete message:", error);
       }
 
-      // Update warning count for user
-      global.warnings[sender] = (global.warnings[sender] || 0) + 1;
-      const warningCount = global.warnings[sender];
+      // Handle based on mode
+      switch (global.antiLinkMode) {
+        case 'delete':
+          await reply(`⚠️ Links not allowed! Message from @${sender.split('@')[0]} was deleted.`, { mentions: [sender] });
+          break;
 
-      // Handle warnings
-      if (warningCount < 4) {
-        // Send warning message
-        await conn.sendMessage(from, {
-          text: `‎*⚠️LINKS ARE NOT ALLOWED⚠️*\n` +
-                `*╭────⬡ WARNING ⬡────*\n` +
-                `*├▢ USER :* @${sender.split('@')[0]}!\n` +
-                `*├▢ COUNT : ${warningCount}*\n` +
-                `*├▢ REASON : LINK SENDING*\n` +
-                `*├▢ WARN LIMIT : 3*\n` +
-                `*╰─────⬡ *TOHID_MD* ⬡────*`,
-          mentions: [sender]
-        });
-      } else {
-        // Remove user if they exceed warning limit
-        await conn.sendMessage(from, {
-          text: `@${sender.split('@')[0]} *TOHID_MD BOT HAS BEEN REMOVED - WARN LIMIT EXCEEDED!*`,
-          mentions: [sender]
-        });
-        await conn.groupParticipantsUpdate(from, [sender], "remove");
-        delete global.warnings[sender];
+        case 'kick':
+          await reply(`⚠️ Links not allowed! @${sender.split('@')[0]} has been kicked.`, { mentions: [sender] });
+          await conn.groupParticipantsUpdate(from, [sender], "remove");
+          break;
+
+        case 'warn':
+        default:
+          global.warnings[sender] = (global.warnings[sender] || 0) + 1;
+          const warnCount = global.warnings[sender];
+
+          if (warnCount < 3) {
+            await reply(
+              `⚠️ *WARNING ${warnCount}/3* - Links not allowed!\n` +
+              `User: @${sender.split('@')[0]}\n` +
+              `Next violation will result in a kick!`,
+              { mentions: [sender] }
+            );
+          } else {
+            await reply(`🚫 @${sender.split('@')[0]} has been kicked for sending links repeatedly!`, { mentions: [sender] });
+            await conn.groupParticipantsUpdate(from, [sender], "remove");
+            delete global.warnings[sender];
+          }
+          break;
       }
     }
   } catch (error) {
     console.error("Anti-link error:", error);
-    reply("❌ An error occurred while processing the message.");
+    reply("❌ Error processing anti-link rule.");
   }
 });
