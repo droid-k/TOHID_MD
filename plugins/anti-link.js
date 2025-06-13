@@ -3,7 +3,7 @@ const { cmd } = require('../command');
 // Global storage for settings
 if (!global.antiLinkSettings) {
   global.antiLinkSettings = {
-    mode: 'warn', // Default mode
+    mode: 'delete', // Default mode
     enabled: true,
     warnings: {}
   };
